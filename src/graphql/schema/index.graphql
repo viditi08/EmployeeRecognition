@@ -1,0 +1,308 @@
+# --------------------------------------
+# ENUMS
+# --------------------------------------
+
+"""
+User roles in the system with different access levels
+"""
+enum Role {
+  """Basic employee with limited access"""
+  EMPLOYEE
+  """Team manager with analytics access"""
+  MANAGER
+  """HR personnel with user management access"""
+  HR
+  """System administrator with full access"""
+  ADMIN
+}
+
+"""
+Visibility levels for recognitions
+"""
+enum Visibility {
+  """Visible to everyone in the organization"""
+  PUBLIC
+  """Visible only to sender and recipient"""
+  PRIVATE
+  """Visible to recipient but sender is anonymous"""
+  ANONYMOUS
+}
+
+"""
+Time periods for analytics calculations
+"""
+enum AnalyticsPeriod {
+  """Last 24 hours"""
+  DAY
+  """Last 7 days"""
+  WEEK
+  """Last 30 days"""
+  MONTH
+  """Last 90 days"""
+  QUARTER
+  """Last 365 days"""
+  YEAR
+}
+
+# --------------------------------------
+# SCALARS
+# --------------------------------------
+
+"""
+ISO 8601 formatted date and time
+"""
+scalar DateTime
+
+# --------------------------------------
+# OBJECT TYPES
+# --------------------------------------
+
+"""
+A user in the employee recognition system
+"""
+type User {
+  """Unique identifier for the user"""
+  id: ID!
+  """Full name of the user"""
+  name: String!
+  """Email address of the user"""
+  email: String!
+  """Role of the user in the system"""
+  role: Role!
+  """Team the user belongs to"""
+  team: Team!
+  """Recognitions sent by this user"""
+  recognitionsGiven: [Recognition!]!
+  """Recognitions received by this user"""
+  recognitionsReceived: [Recognition!]!
+  """Total number of recognitions sent"""
+  totalRecognitionsGiven: Int!
+  """Total number of recognitions received"""
+  totalRecognitionsReceived: Int!
+}
+
+"""
+A team or department in the organization
+"""
+type Team {
+  """Unique identifier for the team"""
+  id: ID!
+  """Name of the team"""
+  name: String!
+  """Members of the team"""
+  members: [User!]!
+  """Total recognitions received by team members"""
+  totalRecognitions: Int!
+}
+
+"""
+A recognition or kudos sent from one user to another
+"""
+type Recognition {
+  """Unique identifier for the recognition"""
+  id: ID!
+  """Message content of the recognition"""
+  message: String!
+  """Emoji associated with the recognition"""
+  emoji: String!
+  """User who sent the recognition (null for anonymous)"""
+  from: User
+  """User who received the recognition"""
+  to: User!
+  """Visibility level of the recognition"""
+  visibility: Visibility!
+  """When the recognition was created"""
+  createdAt: DateTime!
+  """Keywords extracted from the message for analytics"""
+  keywords: [String!]!
+}
+
+"""
+Analytics data for the organization
+"""
+type Analytics {
+  """Analytics broken down by team"""
+  teamStats: [TeamAnalytics!]!
+  """Analytics broken down by keywords"""
+  keywordStats: [KeywordAnalytics!]!
+  """Analytics broken down by user"""
+  userStats: [UserAnalytics!]!
+  """Time period for the analytics"""
+  period: AnalyticsPeriod!
+}
+
+"""
+Analytics data for a specific team
+"""
+type TeamAnalytics {
+  """The team these analytics are for"""
+  team: Team!
+  """Total recognitions in the team"""
+  totalRecognitions: Int!
+  """Number of public recognitions"""
+  publicRecognitions: Int!
+  """Number of private recognitions"""
+  privateRecognitions: Int!
+  """Number of anonymous recognitions"""
+  anonymousRecognitions: Int!
+  """Top users who received the most recognitions"""
+  topReceivers: [User!]!
+  """Top users who sent the most recognitions"""
+  topGivers: [User!]!
+}
+
+"""
+Analytics data for a specific keyword
+"""
+type KeywordAnalytics {
+  """The keyword being analyzed"""
+  keyword: String!
+  """Number of recognitions containing this keyword"""
+  count: Int!
+  """Recognitions containing this keyword"""
+  recognitions: [Recognition!]!
+}
+
+"""
+Analytics data for a specific user
+"""
+type UserAnalytics {
+  """The user these analytics are for"""
+  user: User!
+  """Number of recognitions received"""
+  recognitionsReceived: Int!
+  """Number of recognitions given"""
+  recognitionsGiven: Int!
+  """Engagement score based on activity"""
+  engagementScore: Float!
+}
+
+"""
+A notification for a user
+"""
+type Notification {
+  """Unique identifier for the notification"""
+  id: ID!
+  """Type of notification"""
+  type: String!
+  """Message content of the notification"""
+  message: String!
+  """Associated recognition (if applicable)"""
+  recognition: Recognition
+  """When the notification was created"""
+  createdAt: DateTime!
+  """Whether the notification has been read"""
+  read: Boolean!
+}
+
+# --------------------------------------
+# INPUT TYPES
+# --------------------------------------
+
+"""
+Input for creating a new recognition
+"""
+input RecognitionInput {
+  """ID of the user receiving the recognition"""
+  toUserId: ID!
+  """Message content of the recognition"""
+  message: String!
+  """Emoji to associate with the recognition"""
+  emoji: String!
+  """Visibility level of the recognition"""
+  visibility: Visibility!
+}
+
+"""
+Input for analytics queries
+"""
+input AnalyticsInput {
+  """Time period for the analytics"""
+  period: AnalyticsPeriod!
+  """Optional team ID to filter by"""
+  teamId: ID
+  """Optional keyword to filter by"""
+  keyword: String
+}
+
+# --------------------------------------
+# QUERIES
+# --------------------------------------
+
+type Query {
+  # User queries
+  """Get a specific user by ID (managers/HR only)"""
+  getUser(id: ID!): User
+  """Get the current user's profile"""
+  getMyProfile: User
+  """Get recognitions received by the current user"""
+  getMyRecognitions: [Recognition!]!
+  
+  # Team queries
+  """Get all teams in the organization"""
+  getTeams: [Team!]!
+  """Get a specific team by ID"""
+  getTeam(id: ID!): Team
+  
+  # Recognition queries
+  """Get recognitions for a specific team (managers only)"""
+  getRecognitionsByTeam(teamId: ID!): [Recognition!]!
+  """Get recognitions for a specific user (managers/HR only)"""
+  getRecognitionsByUser(userId: ID!): [Recognition!]!
+  """Get all recognitions (HR/Admin only)"""
+  getAllRecognitions: [Recognition!]!
+  
+  # Analytics queries
+  """Get comprehensive analytics (managers/HR/Admin only)"""
+  getAnalytics(input: AnalyticsInput!): Analytics!
+  """Get analytics for a specific team (managers/HR/Admin only)"""
+  getTeamAnalytics(teamId: ID!, period: AnalyticsPeriod!): TeamAnalytics!
+  """Get analytics for a specific keyword (managers/HR/Admin only)"""
+  getKeywordAnalytics(keyword: String!, period: AnalyticsPeriod!): KeywordAnalytics!
+  
+  # Notification queries
+  """Get notifications for the current user"""
+  getMyNotifications: [Notification!]!
+}
+
+# --------------------------------------
+# MUTATIONS
+# --------------------------------------
+
+type Mutation {
+  # Recognition mutations
+  """Send a recognition to another user"""
+  sendRecognition(input: RecognitionInput!): Recognition!
+  """Delete a recognition (only creator or HR/Admin)"""
+  deleteRecognition(id: ID!): Boolean!
+  
+  # Notification mutations
+  """Mark a specific notification as read"""
+  markNotificationAsRead(id: ID!): Notification!
+  """Mark all notifications as read for the current user"""
+  markAllNotificationsAsRead: Boolean!
+  
+  # User mutations
+  """Update the current user's profile"""
+  updateProfile(name: String, email: String): User!
+}
+
+# --------------------------------------
+# SUBSCRIPTIONS
+# --------------------------------------
+
+type Subscription {
+  # Real-time notifications
+  """Subscribe to real-time recognition notifications for a user"""
+  onRecognitionReceived(userId: ID!): Recognition!
+  """Subscribe to general notification updates for a user"""
+  onNotificationReceived(userId: ID!): Notification!
+  
+  # Team updates
+  """Subscribe to real-time team recognition updates (managers only)"""
+  onTeamRecognitionUpdate(teamId: ID!): Recognition!
+  
+  # Analytics updates (for dashboards)
+  """Subscribe to real-time analytics updates (managers/HR/Admin only)"""
+  onAnalyticsUpdate(teamId: ID): Analytics!
+}
